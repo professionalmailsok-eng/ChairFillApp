@@ -12,10 +12,11 @@ import java.io.IOException
 
 class PhoneStateReceiver : BroadcastReceiver() {
     companion object {
-        private var lastState = TelephonyManager.EXTRA_STATE_IDLE
-        private var isIncoming = false
+        // FIX: Changed from String to Int (CALL_STATE_IDLE)
+        private var lastState: Int = TelephonyManager.CALL_STATE_IDLE
+        private var isIncoming: Boolean = false
         private var savedNumber: String? = null
-        private val client = OkHttpClient()
+        private val client: OkHttpClient = OkHttpClient()
     }
 
     override fun onReceive(context: Context, intent: Intent) {
@@ -23,7 +24,7 @@ class PhoneStateReceiver : BroadcastReceiver() {
             val stateStr = intent.extras?.getString(TelephonyManager.EXTRA_STATE)
             val number = intent.extras?.getString(TelephonyManager.EXTRA_INCOMING_NUMBER)
 
-            var state = 0
+            var state = TelephonyManager.CALL_STATE_IDLE
             if (stateStr == TelephonyManager.EXTRA_STATE_IDLE) {
                 state = TelephonyManager.CALL_STATE_IDLE
             } else if (stateStr == TelephonyManager.EXTRA_STATE_OFFHOOK) {
@@ -44,15 +45,18 @@ class PhoneStateReceiver : BroadcastReceiver() {
             TelephonyManager.CALL_STATE_RINGING -> {
                 isIncoming = true
                 savedNumber = number
+                Log.d("PhoneStateReceiver", "Incoming call ringing from: $savedNumber")
             }
             TelephonyManager.CALL_STATE_OFFHOOK -> {
                 if (isIncoming) {
                     isIncoming = false
+                    Log.d("PhoneStateReceiver", "Incoming call answered")
                 }
             }
             TelephonyManager.CALL_STATE_IDLE -> {
                 if (lastState == TelephonyManager.CALL_STATE_RINGING) {
-                    // Missed call detected!
+                    // Ringing stopped, but was never answered -> MISSED CALL
+                    Log.d("PhoneStateReceiver", "Missed call from: $savedNumber")
                     sendMissedCallToServer(savedNumber)
                 }
                 isIncoming = false
@@ -72,8 +76,12 @@ class PhoneStateReceiver : BroadcastReceiver() {
         val request = Request.Builder().url(url).post(body).build()
 
         client.newCall(request).enqueue(object : Callback {
-            override fun onFailure(call: Call, e: IOException) {}
-            override fun onResponse(call: Call, response: Response) {}
+            override fun onFailure(call: Call, e: IOException) {
+                Log.e("PhoneStateReceiver", "API Call Failed", e)
+            }
+            override fun onResponse(call: Call, response: Response) {
+                Log.d("PhoneStateReceiver", "API Call Success: ${response.code}")
+            }
         })
     }
 }
