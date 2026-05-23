@@ -16,7 +16,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '18'
+          node-version: '20'
           cache: 'npm'
 
       - name: Setup Java
@@ -27,6 +27,18 @@ jobs:
 
       - name: Install dependencies
         run: npm install
+
+      # Memory limit increase taaki Node crash na ho
+      - name: Set Node Memory Limits
+        run: echo "NODE_OPTIONS=--max-old-space-size=4096" >> $GITHUB_ENV
+
+      # Bundle command ke liye missing folder create karna
+      - name: Create assets directory
+        run: mkdir -p android/app/src/main/assets
+
+      # Is step se agar JS me koi galti hai to exact error pata chalega
+      - name: Build JS Bundle
+        run: npx react-native bundle --platform android --dev false --entry-file index.js --bundle-output android/app/src/main/assets/index.android.bundle --assets-dest android/app/src/main/res/
 
       - name: Make gradlew executable
         run: cd android && chmod +x gradlew
