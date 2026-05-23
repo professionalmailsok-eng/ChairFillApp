@@ -1,0 +1,47 @@
+name: Build Android APK
+
+on:
+  push:
+    branches:
+      - main
+      - master
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      # Step 1: Code fetch karna
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      # Step 2: Node.js setup karna
+      - name: Set up Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+
+      # Step 3: Dependencies install karna
+      - name: Install dependencies
+        run: npm install
+
+      # Step 4: Java Development Kit setup karna
+      - name: Set up JDK 17
+        uses: actions/setup-java@v3
+        with:
+          java-version: '17'
+          distribution: 'zulu'
+
+      # Step 5: Android APK Build karna
+      - name: Build APK
+        run: |
+          cd android
+          chmod +x ./gradlew
+          ./gradlew assembleRelease
+
+      # Step 6: APK file ko save aur upload karna
+      - name: Upload APK
+        uses: actions/upload-artifact@v3
+        with:
+          name: chairfill-release-apk
+          path: android/app/build/outputs/apk/release/app-release.apk
