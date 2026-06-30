@@ -121,17 +121,17 @@ class PhoneStateReceiver : BroadcastReceiver() {
     private fun sendMissedCallToServer(context: Context, phoneNumber: String?) {
         if (phoneNumber.isNullOrEmpty()) return
 
-        // Read the REAL clinic id + on/off toggle that the app saved (ConfigModule -> SharedPreferences).
+        // Read the device key + on/off toggle that the app saved (ConfigModule -> SharedPreferences).
         val prefs = context.getSharedPreferences("ChairFillPrefs", Context.MODE_PRIVATE)
         val isActive = prefs.getBoolean("is_active", false)
-        val clinicId = prefs.getString("clinic_id", "")?.trim() ?: ""
+        val deviceKey = prefs.getString("device_key", "")?.trim() ?: ""
 
         if (!isActive) {
             Log.d("PhoneStateReceiver", "Monitoring is OFF — not sending missed call.")
             return
         }
-        if (clinicId.isEmpty()) {
-            Log.e("PhoneStateReceiver", "No clinic_id configured. Open the ChairFill app and enter your clinic code.")
+        if (deviceKey.isEmpty()) {
+            Log.e("PhoneStateReceiver", "No device key configured. Open the ChairFill app and paste your device key.")
             return
         }
 
@@ -139,7 +139,7 @@ class PhoneStateReceiver : BroadcastReceiver() {
         val safeNumber = phoneNumber.filter { it.isDigit() || it == '+' }
         if (safeNumber.isEmpty()) return
 
-        Log.d("PhoneStateReceiver", "Sending to server: $safeNumber (clinic=$clinicId)")
+        Log.d("PhoneStateReceiver", "Sending missed call: $safeNumber")
 
         // IMPORTANT: the *.workers.dev domain does not route at the edge — only chairfill.in does.
         val url = "https://chairfill.in/api/calls/missed"
@@ -148,11 +148,13 @@ class PhoneStateReceiver : BroadcastReceiver() {
             timeZone = java.util.TimeZone.getTimeZone("UTC")
         }.format(java.util.Date())
 
-        val json = """{"phone_number":"$safeNumber","clinic_id":"$clinicId","timestamp":"$ts"}"""
+        // Auth via the per-clinic device key (header); the server resolves the clinic from it.
+        val json = """{"phone_number":"$safeNumber","timestamp":"$ts"}"""
         val body = json.toRequestBody("application/json; charset=utf-8".toMediaType())
         val request = Request.Builder()
             .url(url)
             .post(body)
+            .header("X-Device-Key", deviceKey)
             .header("Connection", "close")
             .build()
 

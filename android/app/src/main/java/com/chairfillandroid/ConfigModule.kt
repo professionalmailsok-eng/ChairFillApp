@@ -18,12 +18,12 @@ class ConfigModule(reactContext: ReactApplicationContext) : ReactContextBaseJava
   override fun getName() = "ConfigModule"
 
   @ReactMethod
-  fun saveConfig(clinicId: String, isActive: Boolean, promise: Promise) {
+  fun saveConfig(deviceKey: String, isActive: Boolean, promise: Promise) {
     try {
       reactApplicationContext
         .getSharedPreferences(PREFS, Context.MODE_PRIVATE)
         .edit()
-        .putString(KEY_CLINIC_ID, clinicId.trim())
+        .putString(KEY_DEVICE_KEY, deviceKey.trim())
         .putBoolean(KEY_IS_ACTIVE, isActive)
         .apply()
       promise.resolve(true)
@@ -37,7 +37,7 @@ class ConfigModule(reactContext: ReactApplicationContext) : ReactContextBaseJava
     try {
       val prefs = reactApplicationContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
       val map = Arguments.createMap()
-      map.putString(KEY_CLINIC_ID, prefs.getString(KEY_CLINIC_ID, ""))
+      map.putString(KEY_DEVICE_KEY, prefs.getString(KEY_DEVICE_KEY, ""))
       map.putBoolean(KEY_IS_ACTIVE, prefs.getBoolean(KEY_IS_ACTIVE, false))
       promise.resolve(map)
     } catch (e: Exception) {
@@ -47,7 +47,7 @@ class ConfigModule(reactContext: ReactApplicationContext) : ReactContextBaseJava
 
   companion object {
     const val PREFS = "ChairFillPrefs"
-    const val KEY_CLINIC_ID = "clinic_id"
+    const val KEY_DEVICE_KEY = "device_key"
     const val KEY_IS_ACTIVE = "is_active"
   }
 }

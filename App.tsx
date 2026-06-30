@@ -47,7 +47,7 @@ export default function App() {
   const saveClinicId = async () => {
     const cid = clinicId.trim();
     if (!cid) {
-      Alert.alert('Clinic code required', 'Please enter the clinic code from your ChairFill dashboard.');
+      Alert.alert('Device key required', 'Please paste the device key from your ChairFill dashboard.');
       return;
     }
     await AsyncStorage.setItem('clinicId', cid);
@@ -58,7 +58,7 @@ export default function App() {
 
   const toggleActive = async (value: boolean) => {
     if (value && !savedClinicId) {
-      Alert.alert('Clinic code required', 'Please enter and save your clinic code before turning on monitoring.');
+      Alert.alert('Device key required', 'Please paste and save your device key before turning on monitoring.');
       return;
     }
     if (value && !hasPermissions) {
@@ -124,19 +124,19 @@ export default function App() {
       </View>
 
       <View style={styles.card}>
-        <Text style={styles.statusTitle}>Clinic Code</Text>
-        <Text style={styles.statusSubtitle}>Paste your clinic ID from the ChairFill dashboard</Text>
+        <Text style={styles.statusTitle}>Device Key</Text>
+        <Text style={styles.statusSubtitle}>Paste your device key from the ChairFill dashboard</Text>
         <TextInput
           style={styles.input}
           value={clinicId}
           onChangeText={setClinicId}
-          placeholder="e.g. 1a2b3c4d-5e6f-..."
+          placeholder="Paste your device key"
           placeholderTextColor="#64748b"
           autoCapitalize="none"
           autoCorrect={false}
         />
         <TouchableOpacity style={styles.saveButton} onPress={saveClinicId}>
-          <Text style={styles.saveButtonText}>Save Clinic Code</Text>
+          <Text style={styles.saveButtonText}>Save Device Key</Text>
         </TouchableOpacity>
       </View>
 
@@ -172,7 +172,7 @@ export default function App() {
           When a call to this phone is missed, this app instantly securely transmits the caller's number to your ChairFill AI Receptionist. 
         </Text>
       </View>
-      <Text style={styles.footerText}>{savedClinicId ? `Connected as: ${savedClinicId}` : 'Not connected — enter your clinic code above'}</Text>
+      <Text style={styles.footerText}>{savedClinicId ? 'Connected ✓' : 'Not connected — paste your device key above'}</Text>
     </View>
   );
 }
