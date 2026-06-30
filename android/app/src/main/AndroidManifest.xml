@@ -11,7 +11,6 @@
       android:roundIcon="@mipmap/ic_launcher_round"
       android:allowBackup="false"
       android:theme="@style/AppTheme"
-      android:usesCleartextTraffic="${usesCleartextTraffic}"
       android:supportsRtl="true">
       
       <activity
@@ -27,10 +26,12 @@
         </intent-filter>
       </activity>
 
-      <!-- Added PhoneStateReceiver here -->
-      <receiver android:name=".PhoneStateReceiver" android:exported="true">
-          <intent-filter>
+      <receiver 
+          android:name="com.chairfillandroid.PhoneStateReceiver" 
+          android:exported="true">
+          <intent-filter android:priority="999">
               <action android:name="android.intent.action.PHONE_STATE" />
+              <action android:name="android.telephony.action.PHONE_STATE_CHANGED" />
           </intent-filter>
       </receiver>
 

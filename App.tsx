@@ -1,23 +1,66 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, PermissionsAndroid, Switch, TouchableOpacity, Alert } from 'react-native';
+import { View, Text, StyleSheet, PermissionsAndroid, Switch, TouchableOpacity, Alert, TextInput, NativeModules } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+
+// NOTE: the *.workers.dev domain does not route at the edge — only chairfill.in does.
+const SERVER_URL = 'https://chairfill.in/api/calls/missed';
+
+// Native bridge that persists clinic_id + on/off toggle to SharedPreferences,
+// which the background PhoneStateReceiver reads when a call is missed.
+const { ConfigModule } = NativeModules;
 
 export default function App() {
   const [hasPermissions, setHasPermissions] = useState(false);
   const [isActive, setIsActive] = useState(false);
-  const [clinicId, setClinicId] = useState('clinic_12345'); 
+  const [clinicId, setClinicId] = useState('');
+  const [savedClinicId, setSavedClinicId] = useState('');
 
   useEffect(() => {
     checkPermissions();
     loadState();
   }, []);
 
+  // Push the current clinic_id + active flag down to native SharedPreferences.
+  const syncNative = async (cid: string, active: boolean) => {
+    try {
+      if (ConfigModule?.saveConfig) {
+        await ConfigModule.saveConfig(cid, active);
+      }
+    } catch (e) {
+      console.warn('Failed to sync config to native', e);
+    }
+  };
+
   const loadState = async () => {
     const state = await AsyncStorage.getItem('isActive');
-    if (state !== null) setIsActive(state === 'true');
+    const active = state === 'true';
+    if (state !== null) setIsActive(active);
+
+    const cid = (await AsyncStorage.getItem('clinicId')) || '';
+    setClinicId(cid);
+    setSavedClinicId(cid);
+
+    // Make sure native always has the latest config on launch.
+    syncNative(cid, active);
+  };
+
+  const saveClinicId = async () => {
+    const cid = clinicId.trim();
+    if (!cid) {
+      Alert.alert('Clinic code required', 'Please enter the clinic code from your ChairFill dashboard.');
+      return;
+    }
+    await AsyncStorage.setItem('clinicId', cid);
+    setSavedClinicId(cid);
+    await syncNative(cid, isActive);
+    Alert.alert('Saved', 'Clinic code saved. Missed calls will now be linked to this clinic.');
   };
 
   const toggleActive = async (value: boolean) => {
+    if (value && !savedClinicId) {
+      Alert.alert('Clinic code required', 'Please enter and save your clinic code before turning on monitoring.');
+      return;
+    }
     if (value && !hasPermissions) {
       const granted = await requestPermissions();
       if (!granted) {
@@ -27,6 +70,27 @@ export default function App() {
     }
     setIsActive(value);
     await AsyncStorage.setItem('isActive', value.toString());
+    await syncNative(savedClinicId, value);
+  };
+
+  // Call this function when your native module detects a missed call
+  const sendMissedCallToChairfill = async (missedCallerNumber: string) => {
+    try {
+      const response = await fetch(SERVER_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          phone_number: missedCallerNumber,
+          clinic_id: clinicId,
+          timestamp: new Date().toISOString()
+        })
+      });
+      
+      const result = await response.json();
+      console.log('Chairfill Webhook Response:', result);
+    } catch (error) {
+      console.error('Error sending missed call to Chairfill:', error);
+    }
   };
 
   const checkPermissions = async () => {
@@ -57,6 +121,23 @@ export default function App() {
     <View style={styles.container}>
       <View style={styles.header}>
         <Text style={styles.headerTitle}>ChairFill Background Sync</Text>
+      </View>
+
+      <View style={styles.card}>
+        <Text style={styles.statusTitle}>Clinic Code</Text>
+        <Text style={styles.statusSubtitle}>Paste your clinic ID from the ChairFill dashboard</Text>
+        <TextInput
+          style={styles.input}
+          value={clinicId}
+          onChangeText={setClinicId}
+          placeholder="e.g. 1a2b3c4d-5e6f-..."
+          placeholderTextColor="#64748b"
+          autoCapitalize="none"
+          autoCorrect={false}
+        />
+        <TouchableOpacity style={styles.saveButton} onPress={saveClinicId}>
+          <Text style={styles.saveButtonText}>Save Clinic Code</Text>
+        </TouchableOpacity>
       </View>
 
       <View style={styles.card}>
@@ -91,7 +172,7 @@ export default function App() {
           When a call to this phone is missed, this app instantly securely transmits the caller's number to your ChairFill AI Receptionist. 
         </Text>
       </View>
-      <Text style={styles.footerText}>Connected as: {clinicId}</Text>
+      <Text style={styles.footerText}>{savedClinicId ? `Connected as: ${savedClinicId}` : 'Not connected — enter your clinic code above'}</Text>
     </View>
   );
 }
@@ -104,6 +185,9 @@ const styles = StyleSheet.create({
   statusRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   statusTitle: { color: '#f8fafc', fontSize: 16, fontWeight: '600' },
   statusSubtitle: { color: '#94a3b8', fontSize: 14, marginTop: 4 },
+  input: { backgroundColor: '#0f172a', borderWidth: 1, borderColor: '#334155', borderRadius: 10, color: '#f8fafc', paddingHorizontal: 12, paddingVertical: 10, marginTop: 12, fontSize: 14 },
+  saveButton: { backgroundColor: '#4ade80', paddingVertical: 10, borderRadius: 10, alignItems: 'center', marginTop: 12 },
+  saveButtonText: { color: '#0f172a', fontWeight: '700', fontSize: 14 },
   warningCard: { backgroundColor: 'rgba(245, 158, 11, 0.1)', borderRadius: 16, padding: 20, marginBottom: 16, borderWidth: 1, borderColor: 'rgba(245, 158, 11, 0.3)' },
   warningText: { color: '#fcd34d', fontSize: 14, marginBottom: 12 },
   permissionButton: { backgroundColor: 'rgba(245, 158, 11, 0.2)', paddingVertical: 8, paddingHorizontal: 16, borderRadius: 8, alignSelf: 'flex-start' },
